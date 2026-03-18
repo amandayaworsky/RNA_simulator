@@ -1,0 +1,200 @@
+RNA SEQUENCE SIMULATOR PSEUDOCODE
+
+DATA DEFINITIONS
+- RNA_BASES = [A, C, G, U]
+- START_CODON = AUG
+- STOP_CODONS = [UAA, UAG, UGA]
+- IUPAC_AMBIGUOUS = [R, Y, S, W, K, M, B, D, H, V, N]
+- FASTA record tuple = (sequence_id, description, sequence)
+
+LIBRARY FUNCTIONS: sequence_lib.py
+
+FUNCTION validate_sequence(sequence)
+    CONVERT sequence to uppercase
+    IF sequence is empty THEN
+        RAISE ValueError
+    END IF
+    FOR each character in sequence
+        IF character not in valid RNA or IUPAC symbols THEN
+            RAISE ValueError
+        END IF
+    END FOR
+    RETURN normalized sequence
+END FUNCTION
+
+FUNCTION get_gc_content(sequence)
+    normalized_sequence = validate_sequence(sequence)
+    gc_count = 0
+    FOR each nucleotide in normalized_sequence
+        IF nucleotide is G or C THEN
+            gc_count = gc_count + 1
+        END IF
+    END FOR
+    RETURN (gc_count / total_length) * 100
+END FUNCTION
+
+FUNCTION get_ambiguity_content(sequence)
+    normalized_sequence = validate_sequence(sequence)
+    ambiguity_count = 0
+    FOR each nucleotide in normalized_sequence
+        IF nucleotide is an IUPAC ambiguity symbol THEN
+            ambiguity_count = ambiguity_count + 1
+        END IF
+    END FOR
+    RETURN (ambiguity_count / total_length) * 100
+END FUNCTION
+
+FUNCTION generate_random_codon()
+    codon = empty string
+    REPEAT 3 times
+        APPEND random RNA base to codon
+    END REPEAT
+    RETURN codon
+END FUNCTION
+
+FUNCTION is_start_codon(codon)
+    normalized_codon = validate_sequence(codon)
+    IF length of normalized_codon is not 3 THEN
+        RAISE ValueError
+    END IF
+    RETURN True if normalized_codon equals AUG else False
+END FUNCTION
+
+FUNCTION is_stop_codon(codon)
+    normalized_codon = validate_sequence(codon)
+    IF length of normalized_codon is not 3 THEN
+        RAISE ValueError
+    END IF
+    RETURN True if normalized_codon is UAA or UAG or UGA else False
+END FUNCTION
+
+FUNCTION generate_random_sequence(length)
+    IF length < 0 THEN
+        RAISE ValueError
+    END IF
+    sequence = empty string
+    REPEAT length times
+        APPEND random RNA base to sequence
+    END REPEAT
+    RETURN sequence
+END FUNCTION
+
+FUNCTION write_fasta(sequences, output_file)
+    IF sequences list is empty THEN
+        RAISE ValueError
+    END IF
+    OPEN output file for writing
+    FOR each record in sequences
+        EXTRACT sequence_id, description, sequence
+        VALIDATE sequence
+        WRITE >sequence_id description
+        WRITE sequence in 60-character lines
+    END FOR
+    CLOSE output file
+END FUNCTION
+
+SIMULATOR CLASS: simulator.py
+
+CLASS Simulator
+    ATTRIBUTES
+        num_sequences
+        min_orf_length
+        max_orf_length
+        flanking_probability
+        flanking_length
+        completeness_ratio
+
+    METHOD __init__(parameters)
+        VALIDATE num_sequences > 0
+        VALIDATE min_orf_length <= max_orf_length
+        VALIDATE ORF lengths are positive multiples of 3
+        VALIDATE probabilities are between 0 and 1
+        STORE all parameters as instance variables
+    END METHOD
+
+    METHOD generate_orf(complete = True)
+        CHOOSE random ORF length between min_orf_length and max_orf_length using step size 3
+        IF complete is True THEN
+            CREATE codon list with start codon AUG
+            WHILE codon list length is less than final length minus one codon
+                GENERATE random codon
+                IF codon is not a stop codon THEN
+                    APPEND codon
+                END IF
+            END WHILE
+            APPEND random stop codon
+            RETURN concatenated codons
+        ELSE
+            GENERATE random RNA sequence with selected ORF length
+            IF sequence accidentally begins with start codon OR ends with stop codon THEN
+                REPEAT generation
+            END IF
+            RETURN partial sequence
+        END IF
+    END METHOD
+
+    METHOD generate_sequence()
+        CHOOSE whether sequence is complete using completeness_ratio
+        GENERATE core ORF using generate_orf
+        CHOOSE whether to add flanks using flanking_probability
+        IF flanks are added THEN
+            GENERATE left flank of flanking_length
+            GENERATE right flank of flanking_length
+            RETURN left flank + core ORF + right flank
+        END IF
+        RETURN core ORF only
+    END METHOD
+
+    METHOD generate_sequences()
+        CREATE empty results list
+        FOR index from 1 to num_sequences
+            sequence = generate_sequence()
+            DETERMINE type as complete or partial
+            DETERMINE flanked as yes or no
+            COMPUTE length metadata
+            COMPUTE gc_content metadata
+            COMPUTE ambiguity metadata
+            BUILD description string
+            APPEND tuple (seq_id, description, sequence) to results list
+        END FOR
+        RETURN results list
+    END METHOD
+
+    METHOD save_fasta(output_file)
+        records = generate_sequences()
+        CALL write_fasta(records, output_file)
+    END METHOD
+END CLASS
+
+MAIN PROGRAM: main.py
+
+FUNCTION create_parser()
+    CREATE argparse parser
+    ADD all required command-line arguments with defaults and help text
+    RETURN parser
+END FUNCTION
+
+FUNCTION validate_arguments(args)
+    CHECK num_sequences > 0
+    CHECK min_length and max_length > 0
+    CHECK min_length <= max_length
+    CHECK min_length and max_length are multiples of 3
+    CHECK flanking_prob is between 0 and 1
+    CHECK flanking_length >= 0
+    CHECK completeness is between 0 and 1
+    RAISE ValueError if any rule fails
+END FUNCTION
+
+FUNCTION main()
+    CREATE parser
+    PARSE command-line arguments
+    VALIDATE arguments
+    CREATE Simulator object
+    CALL save_fasta on output file
+    WRITE success messages to stdout
+    RETURN exit code 0
+    IF any exception occurs THEN
+        WRITE error message to stderr
+        RETURN exit code 1
+    END IF
+END FUNCTION
