@@ -1,0 +1,8 @@
+name: rna-simulator
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - biopython
+  - numpy 
+
